@@ -1,0 +1,214 @@
+{
+  "app_name": "Kushan.Ji",
+  "personality": "1 iOS-Native Clean with 6 Glass / Luxe surfaces",
+  "personality_one_liner": "A premium, high-density B2B delivery command center that balances operational clarity with sophisticated iOS-native glass aesthetics.",
+  "color": {
+    "surface": "#F8F9FB",
+    "onSurface": "#111827",
+    "surfaceSecondary": "#FFFFFF",
+    "onSurfaceSecondary": "#374151",
+    "surfaceTertiary": "#F3F4F6",
+    "onSurfaceTertiary": "#4B5563",
+    "surfaceInverse": "#111827",
+    "onSurfaceInverse": "#F9FAFB",
+    "brand": "#2E3F9C",
+    "brandPrimary": "#2E3F9C",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#4356C4",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#E5E8F5",
+    "onBrandTertiary": "#2E3F9C",
+    "success": "#059669",
+    "onSuccess": "#FFFFFF",
+    "warning": "#D97706",
+    "onWarning": "#FFFFFF",
+    "error": "#DC2626",
+    "onError": "#FFFFFF",
+    "info": "#2563EB",
+    "onInfo": "#FFFFFF",
+    "border": "#E5E7EB",
+    "borderStrong": "#D1D5DB",
+    "divider": "#F3F4F6"
+  },
+  "color_dark": {
+    "surface": "#0F1117",
+    "onSurface": "#F9FAFB",
+    "surfaceSecondary": "#1A1D27",
+    "onSurfaceSecondary": "#D1D5DB",
+    "surfaceTertiary": "#252A38",
+    "onSurfaceTertiary": "#9CA3AF",
+    "surfaceInverse": "#F8F9FB",
+    "onSurfaceInverse": "#111827",
+    "brand": "#2E3F9C",
+    "brandPrimary": "#3B4DAB",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#4356C4",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#1E2652",
+    "onBrandTertiary": "#A5B4FC",
+    "success": "#10B981",
+    "onSuccess": "#064E3B",
+    "warning": "#F59E0B",
+    "onWarning": "#78350F",
+    "error": "#EF4444",
+    "onError": "#7F1D1D",
+    "info": "#3B82F6",
+    "onInfo": "#1E3A8A",
+    "border": "#2D3343",
+    "borderStrong": "#4B5563",
+    "divider": "#1F2433"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Plus Jakarta Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical breathing room for Dashboard sections, tight logical grouping for dense list items. Use 16px screen padding. Minimum 56pt touch targets for all interactive list rows.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 1,
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use frosted glass on the bottom tab bar where the dashboard scrolls underneath.",
+      "Use frosted glass on the sticky top header containing the brand logo and daily summary.",
+      "Apply glass overlay on the floating action button (FAB) paired with a brandTertiary tint.",
+      "Use glass headers for the bottom sheet when creating a New Delivery."
+    ],
+    "dont's": [
+      "Do not use glass on standard data cards or delivery list rows (use solid surfaceSecondary).",
+      "Do not blur forms or input fields."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Login",
+      "purpose": "Secure entry point with Biometric authentication.",
+      "states": {
+        "loading": "Subtle pulsing brand logo.",
+        "empty": "N/A",
+        "error": "Standard error toast with 'Retry' CTA."
+      },
+      "layout": "Centered layout. Large company logo at the top (badge shape on black background). Clean form inputs for credentials (surfaceTertiary background, no heavy borders). Primary 'Login' button (brandPrimary). Secondary biometric login button below."
+    },
+    {
+      "name": "Dashboard (Admin & User)",
+      "purpose": "High-level command center showing real-time daily and monthly delivery metrics.",
+      "states": {
+        "loading": "Skeleton UI for KPI cards and charts.",
+        "empty": "Zero-state dashboard with an illustration of a clean warehouse, prompting to 'Log First Delivery'.",
+        "error": "Error message with 'Tap to reload' centered."
+      },
+      "layout": "Sticky glass header with the Kushan.Ji logo (small version) and greeting. Top section: 2-column grid of KPI cards (Today Deliveries, Today Qty, Today Customers, Monthly Totals) using surfaceSecondary, subtle shadow tier 1. Middle section: 'Daily Analytics' bar chart card. Bottom section: 'Top Customers' and 'Top Products' list cards using the 'Card-Row' pattern (Avatar left, Primary Data center-bold, Value right). FAB pinned bottom-right for 'New Delivery'."
+    },
+    {
+      "name": "Deliveries",
+      "purpose": "A dense, scannable, filterable list of all delivery entries.",
+      "states": {
+        "loading": "Skeleton rows mimicking the list structure.",
+        "empty": "Illustration of empty delivery boxes with 'No deliveries logged yet.'",
+        "error": "Error card with a prominent Retry button."
+      },
+      "layout": "Sticky header with search bar and filter chips (Date, Customer, Driver, Product). List UI uses the 'Card-Row' pattern: Left side shows Product/Unit icon, center shows Customer Name & Driver, right shows Qty and Indian Rupee value/status. Implement Swipe-to-Action (Left swipe for Edit, Right swipe for Share WhatsApp Report). Use a sticky header for date grouping (e.g., 'Today, 24 May'). FAB at bottom-right for new entry."
+    },
+    {
+      "name": "Delivery Entry (Bottom Sheet / Modal)",
+      "purpose": "Frictionless form to create or edit a delivery entry.",
+      "states": {
+        "loading": "Spinner over submit button.",
+        "empty": "N/A",
+        "error": "Inline validation errors below inputs in error color."
+      },
+      "layout": "Full-bleed Bottom Sheet (via @gorhom/bottom-sheet). Frosted glass drag handle. Single column inputs with labels above. Inputs for Date (auto-filled), Customer (dropdown/search), Driver, Product, Quantity & Unit (segmented control or dropdown for kg/g/packets/boxes/dozen), Remarks. Sticky 'Save Delivery' primary button pinned to the bottom above the keyboard."
+    },
+    {
+      "name": "Reports",
+      "purpose": "Generate, view, and share analytical reports via WhatsApp/PDF.",
+      "states": {
+        "loading": "Skeleton UI for report previews.",
+        "empty": "Select filters to generate a report.",
+        "error": "Failed to generate report message."
+      },
+      "layout": "Header with title 'Reports'. Top section: Tabbed or segmented control (Customer Summary, Driver Summary, Product-wise, Date-wise). Middle section: Filter form (Start Date, End Date). Bottom section: Generated report preview in a large surfaceSecondary card. Sticky bottom action container with two buttons: 'Export PDF' (brandSecondary) and 'Share on WhatsApp' (success color, to match WhatsApp green identity)."
+    },
+    {
+      "name": "Settings",
+      "purpose": "Manage app preferences, user roles (Admin), and basic setup.",
+      "states": {
+        "loading": "Loading spinner.",
+        "empty": "N/A",
+        "error": "Failed to load settings."
+      },
+      "layout": "Standard iOS-style grouped list settings. Group 1: Profile & Business Info (Business name, update logo). Group 2: Security (Biometric toggle). Group 3 (Admin Only): User Management, Driver DB, Customer DB links. Each row uses a tinted icon container (brandTertiary with brandPrimary icon). Bottom row: 'Log Out' in red (error text)."
+    }
+  ],
+  "haptics": {
+    "tab_press": "light",
+    "fab_press": "medium",
+    "swipe_action_trigger": "light",
+    "save_delivery_success": "success",
+    "biometric_auth_success": "success",
+    "filter_chip_toggle": "light"
+  },
+  "images": {
+    "logo_placeholder": {
+      "url": "https://placehold.co/400x400/000000/FFFFFF/png?text=Kushan.Ji&font=Playfair+Display",
+      "dark": "https://placehold.co/400x400/000000/FFFFFF/png?text=Kushan.Ji&font=Playfair+Display",
+      "alt": "Kushan.Ji Brand Logo (Blue badge, white cursive script on black background)"
+    },
+    "empty_warehouse": {
+      "url": "https://images.unsplash.com/photo-1672552226380-486fe900b322?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHwxfHxjYXJkYm9hcmQlMjBkZWxpdmVyeSUyMGJveGVzJTIwd2FyZWhvdXNlfGVufDB8fHx8MTc4Mjc0NjUxMXww&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1672552226380-486fe900b322?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHwxfHxjYXJkYm9hcmQlMjBkZWxpdmVyeSUyMGJveGVzJTIwd2FyZWhvdXNlfGVufDB8fHx8MTc4Mjc0NjUxMXww&ixlib=rb-4.1.0&q=85",
+      "alt": "A modern warehouse filled with delivery boxes on pallets."
+    },
+    "empty_deliveries_snack": {
+      "url": "https://images.pexels.com/photos/17480807/pexels-photo-17480807.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "dark": "https://images.pexels.com/photos/17480807/pexels-photo-17480807.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "High-resolution image of crunchy golden-brown namkeen sticks."
+    }
+  },
+  "instructions_to_main_agent": [
+    "Design Identity: The UI must reflect a premium SaaS command center. Use the '1 iOS-Native Clean' personality but elevate it with '6 Glass / Luxe' elements (specifically frosted glass headers, blurred tab bars, and subtle surface overlays).",
+    "Brand Color: Deep Royal Blue (#2E3F9C) is requested by the user and is permitted. Use this across primary CTAs, active tab indicators, and tinted background containers.",
+    "Data Density & Layout: For the 'Deliveries' and 'Top Customers' lists, implement the 'Card-Row' pattern. Show avatar/icon on the left, primary metric in bold center, and status/value on the right. Avoid text-heavy rows; utilize font weight and size for hierarchy.",
+    "Progressive Disclosure: In the Deliveries screen, do not clutter rows with edit/share buttons. Use Swipe-to-Action gestures (e.g., swipe right to share via WhatsApp, left to edit).",
+    "Sticky Actions: Ensure the 'Save Delivery' button in forms and the 'FAB' on the Dashboard/Deliveries screens are sticky and do not scroll away. Use fixed containers with safe-area spacing.",
+    "Indian Context: Support Rupee formatting (₹) for monetary values and include dropdowns/segmented controls for unit selections like kg, g, packets, boxes, and dozen.",
+    "WhatsApp Integration: In the Reports section, clearly distinguish the 'Share on WhatsApp' button using the success color (#059669) to align with WhatsApp's brand recognition, while keeping PDF export in brand color.",
+    "Typography: Rely on Plus Jakarta Sans throughout. Its geometric clarity is excellent for SaaS dashboards and it renders numerical data (quantities, rupees) beautifully.",
+    "Haptics: Ensure React Native haptics are wired to list row actions, tab switching, and save/submit interactions based on the provided haptics map."
+  ]
+}
