@@ -1,7 +1,6 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/auth/AuthContext';
 import { COLORS } from '@/src/theme/theme';
 
