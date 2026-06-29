@@ -437,6 +437,7 @@ async def create_customer(body: CustomerIn, user=Depends(get_user)):
         "created_at": now_iso(),
     }
     await db.customers.insert_one(doc)
+    doc.pop("_id", None)
     await audit(user, "create", "customer", doc["id"], new=doc)
     return clean(doc)
 
@@ -476,6 +477,7 @@ async def list_drivers(user=Depends(get_user)):
 async def create_driver(body: DriverIn, user=Depends(get_user)):
     doc = {"id": str(uuid.uuid4()), "name": body.name.strip(), "created_at": now_iso()}
     await db.drivers.insert_one(doc)
+    doc.pop("_id", None)
     await audit(user, "create", "driver", doc["id"], new=doc)
     return clean(doc)
 
@@ -581,6 +583,7 @@ async def create_delivery(body: DeliveryIn, user=Depends(get_user)):
         "versions": [],
     }
     await db.deliveries.insert_one(doc)
+    doc.pop("_id", None)
     await audit(user, "create", "delivery", doc["id"], new={k: v for k, v in doc.items() if k != "versions"})
     out = await enrich_delivery(clean(doc))
     out["duplicate_warning"] = is_dup

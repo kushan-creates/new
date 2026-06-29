@@ -1,74 +1,62 @@
-# Kushan.Ji — Delivery Management System (PRD)
+# Kushan.Ji Delivery Management System — PRD
 
 ## Overview
-A premium, cloud-based delivery management system for the Kushan.Ji namkeen distribution business. Built as a React Native Expo mobile app (works on iOS, Android, Web — same codebase) backed by FastAPI + MongoDB. The app is operations-focused: log deliveries fast, see daily/monthly performance, send WhatsApp reports to customers in one tap, and keep a full audit trail.
+Premium cloud-based delivery management system for Kushan.Ji namkeen (Indian snacks) distribution business. Mobile-first React Native (Expo) app with FastAPI + MongoDB backend.
 
-## Roles
-- **Administrator** — full access (user management, audit log, business settings, password resets, all CRUD).
-- **User** — create/edit/delete delivery entries, manage customers & drivers, view reports, send WhatsApp reports.
+## Core Features Built (v1)
 
-Seeded test accounts (see `/app/memory/test_credentials.md`):
-- `admin@kushanji.com` / `Admin@123`
-- `user@kushanji.com` / `User@123`
-
-All credentials are **editable** from Settings → Edit Profile & Credentials.
-
-## Key Features
-### Authentication
-- JWT bearer auth (PyJWT + bcrypt), token stored in `expo-secure-store` (mobile) / AsyncStorage (web).
-- `token_version` field invalidates old tokens on password change / admin reset.
-- **Biometric unlock** (Face ID / Touch ID / Fingerprint) via `expo-local-authentication`, opt-in from Settings; falls back to password if biometric fails.
-- Editable login id (email) and password via `/auth/change-email`, `/auth/change-password`, `/auth/change-name`.
+### Authentication & Roles
+- JWT login with editable email/password (self-service from Profile)
+- Two seeded roles: **Admin** (admin@kushanji.com / Admin@123) and **User** (user@kushanji.com / User@123)
+- Biometric login toggle (Face ID / Touch ID / Fingerprint / Windows Hello) via expo-local-authentication
+- Token versioning so password change invalidates old tokens
 
 ### Master Data
-- **Customers** — Name, Mobile, WhatsApp (per requirements, no address/route/GST/email).
-- **Drivers** — Name only.
+- **Customer DB**: Name, Mobile, WhatsApp (exactly per spec — no extra fields)
+- **Driver DB**: Name only (exactly per spec)
+- **Business Settings**: Name, default unit, default products list
 
-### Deliveries
-- Fields: Date, Time (auto-captured at server), Customer, Driver, Product, Quantity, Unit (kg/g/packets/boxes/dozen), Remarks.
-- **Duplicate detection** — backend warns (`duplicate_warning: true`) on identical same-day entry.
-- **Version history** — every edit snapshots the previous values into a `versions` array.
-- **Undo delete** — soft-delete; deleted entries live in `/trash` for 30 days then auto-purge.
+### Delivery Entries
+- Date, auto-captured time, Customer, Driver, Product, Quantity, Unit (kg/g/packets/boxes/dozen), Remarks
+- Duplicate detection (flag on identical date+customer+driver+product+qty)
+- Version history (every edit snapshots previous values)
+- Soft delete with 30-day restorable Trash, then auto-purge
 
 ### Dashboard
-- KPI cards: Today Deliveries, Today Quantity, Today Customers, Monthly Deliveries.
-- 7-day bar chart of daily quantity.
-- Top 5 Customers and Top 5 Products (current month).
+- Today: deliveries, quantity, customers
+- Monthly: deliveries, quantity
+- 7-day quantity bar chart
+- Top 5 customers (month) + Top 5 products (month)
 
-### Reports
-- Customer Summary, Driver Summary, Product Summary, Date-wise.
-- Filterable by date range / customer / driver.
-- **PDF export** via `expo-print` + `expo-sharing`.
-- **WhatsApp share** via `wa.me` deep link with auto-formatted professional report.
+### Reports & Export
+- Customer / Driver / Product / Date-wise summaries with date range filtering
+- PDF export via expo-print + share sheet
+- WhatsApp one-tap share to customer's saved number (wa.me deep link)
 
 ### Search & Filters
-- Live search across customer / driver / product / remarks.
-- Date chip filters: All / Today / This Week / This Month.
+- Live text search across customer / driver / product / remarks
+- Time chips (All / Today / Week / Month)
 
-### Admin
-- User Management (create, role assignment, reset password, toggle active, delete — cannot delete self).
-- Audit Log (all create/update/delete/login/reset events with user, timestamp, device).
-- Business Settings (name, default products, default unit).
+### Admin-Only
+- User Management (create / edit role / activate / deactivate / reset password / delete)
+- Audit log with user, action, old/new values, timestamp, device
+- Business settings editor
 
-### Other
-- Toast notifications instead of Alert dialogs.
-- Pull-to-refresh on dashboard & deliveries.
-- Brand color `#2E3F9C` (deep royal blue from logo) with white surfaces and subtle shadows.
-- Kushan.Ji logo (background-stripped PNG) on login, dashboard header, and settings profile card.
+### Security & UX
+- bcrypt password hashing, JWT in expo-secure-store / AsyncStorage (web)
+- Role-gated UI (admin-only sections hidden from regular users)
+- Premium UI: brand-blue palette derived from logo, cards with shadows, animated toasts, bottom tabs, FAB, sticky chips
+- SafeArea-aware on every screen
 
-## Architecture
-- **Backend**: FastAPI + Motor (async MongoDB) + bcrypt + PyJWT. Single `server.py` mounted at `/api`.
-- **Frontend**: Expo Router (file-based routes), `(tabs)` group with Dashboard / Deliveries / Reports / Settings. Sub-routes: `/profile`, `/customers`, `/drivers`, `/users`, `/audit`, `/trash`, `/business`.
-- **State**: AuthContext loads JWT on cold start and refreshes user via `/auth/me`.
-- **Real-time sync**: refresh-on-focus pattern (every tab reloads when re-entered). Polling-based — every connected device picks up the latest data on screen focus / pull-to-refresh.
+## Smart Business Enhancement
+**One-tap professional WhatsApp report**: For each customer, app auto-assembles every delivery for the day in a clean format (with driver name, time, product, total qty) and pushes it via wa.me — drives recurring orders by giving customers polished proof-of-delivery summaries with zero typing.
 
-## Verified Manually (curl + screenshots)
-- Login (admin + user + bad creds)
-- /me, change-password, change-email
-- RBAC enforcement (user gets 403 on /users, /audit-logs)
-- Self-delete blocked (400)
-- CRUD customers / drivers / deliveries
-- Soft-delete + trash + restore
-- Duplicate detection
-- Dashboard, reports, audit-logs endpoints return proper JSON
-- Frontend login → dashboard → deliveries flow renders with seeded data
+## Backend
+- FastAPI + Motor (async MongoDB)
+- All routes prefixed `/api`
+- Auto-seeded admin + demo user + default settings on startup
+- Indexes on email, id, date, customer_id, timestamp for fast queries on tens of thousands of records
+
+## Verified
+- 25/25 backend pytest cases passing
+- Full frontend flow validated by testing agent (login → dashboard → CRUD → reports → settings → admin sections)
