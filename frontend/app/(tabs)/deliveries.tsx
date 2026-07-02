@@ -28,7 +28,7 @@ type Delivery = {
   remarks?: string;
 };
 
-const BASE_UNITS = ['kg', 'g', 'packets', 'boxes', 'dozen', 'bundle', 'pcs'];
+const BASE_UNITS = ['kg']; // used only as safety fallback if user hasn't configured any default unit
 
 export default function DeliveriesScreen() {
   const toast = useToast();
@@ -219,7 +219,9 @@ function DeliveryForm({
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   const defaultTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  const defaultUnit = editing?.unit || settings?.default_unit || 'kg';
+  const defaultUnit = editing?.unit
+    || (settings?.default_unit || '').split(',').map((s) => s.trim()).filter(Boolean)[0]
+    || 'kg';
   const defaultProducts = settings?.default_products || [];
   const defaultProduct = editing?.product || defaultProducts[0] || '';
   const [date, setDate] = useState(editing?.date || new Date().toISOString().slice(0, 10));
@@ -232,12 +234,14 @@ function DeliveryForm({
   const [remarks, setRemarks] = useState(editing?.remarks || '');
   const [saving, setSaving] = useState(false);
 
-  // Merge configured default unit into the unit chip list (dedup, preserve order)
+  // Merge configured default unit into the unit chip list (dedup, preserve order).
+  // Only the units the user has configured in Business Settings are shown — no built-ins.
+  // The user can enter comma-separated units in settings.default_unit to expose multiple.
   const unitOptions = useMemo(() => {
     const list: string[] = [];
-    const add = (u?: string) => { if (u && !list.includes(u)) list.push(u); };
-    add(settings?.default_unit);
-    BASE_UNITS.forEach(add);
+    const add = (u?: string) => { const t = (u || '').trim(); if (t && !list.includes(t)) list.push(t); };
+    (settings?.default_unit || '').split(',').forEach(add);
+    if (list.length === 0) BASE_UNITS.forEach(add); // safety fallback
     add(unit); // ensure current selection is always in the list
     return list;
   }, [settings?.default_unit, unit]);
