@@ -1,0 +1,35 @@
+{
+  "summary": "Both parts of the user-reported fix VERIFIED end-to-end. BACKEND (9/9 pytest pass — /app/backend/tests/test_settings_defaults.py): PUT /api/settings with default_unit='bundle' and default_products=['Mix Namkeen','Sev','Bhujia'] persists and GET returns the exact values; switching to default_unit='boxes' + default_products=['Namkeen Combo','Sev'] also persists; POST /api/deliveries with unit='bundle' + product='Mix Namkeen' + quantity=1 succeeds and the created delivery in the list has unit='bundle' and product='Mix Namkeen'. Regression endpoints /api/deliveries, /api/audit-logs, /api/settings, /api/reports/period-analysis?period=weekly all return 200. FRONTEND (mobile-web 390x844): after setting default_unit='bundle', default_products=['Mix Namkeen','Sev','Bhujia'] and opening the Deliveries → add-delivery-fab: (a) unit chip row contains 'bundle' AND it is the ACTIVE pre-selected chip (background rgb(46,63,156)) with the row also showing kg/g/packets/boxes/dozen/pcs — 7 chips in order [bundle, kg, g, packets, boxes, dozen, pcs] — confirming BASE_UNITS merge + dedup + default-first ordering works; (b) Product input is pre-filled with 'Mix Namkeen' and the quick-fill chip row shows product-chip-Mix Namkeen / product-chip-Sev / product-chip-Bhujia. Tapping unit-chip-kg switched the active chip to kg while 'bundle' remained visible in the row. Tapping product-chip-Sev updated the Product input to 'Sev'. Saving a delivery (qty=1, unit=bundle, product='Mix Namkeen') created a row in the list that renders '1 bundle' and 'Mix Namkeen'. After switching Business Settings to default_unit='boxes' + default_products=['Namkeen Combo','Sev'] and reopening the New Delivery FAB, the active unit chip became 'boxes' while 'bundle' still appears in the row, and Product pre-fills to 'Namkeen Combo'. Editing an existing delivery (unit='kg', product='Sev') correctly preserved kg as active and 'Sev' as pre-filled Product, NOT overridden by the boxes/Namkeen Combo defaults. No red-screen errors; only pre-existing cosmetic RN-Web deprecation warnings (shadow*, pointerEvents, useNativeDriver-web).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global", "issues": ["Carry-over cosmetic RN-Web warnings (shadow*, pointerEvents, useNativeDriver-web) — no functional impact."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_settings_defaults.py (NEW — 9 tests for settings default_unit/default_products persistence + bundle delivery create/read)",
+    "/app/test_reports/pytest/settings_defaults.xml (JUnit — 9 passed, 0 failed)",
+    "/tmp/deliv_modal_bundle.png (New Delivery with bundle active + Mix Namkeen pre-filled + product chip row)",
+    "/tmp/deliv_after_save.png (Deliveries list showing '1 bundle · Mix Namkeen' row)",
+    "/tmp/scenario_boxes.png (New Delivery after switching defaults to boxes/Namkeen Combo — 'boxes' active, bundle still visible)",
+    "/tmp/scenario_edit.png (Edit Delivery preserves kg active + 'Sev' pre-filled — not overridden by settings defaults)"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "deliveries.tsx:236-243 unitOptions memo dedups correctly and inserts settings.default_unit FIRST — verified via chip order [bundle, kg, g, packets, boxes, dozen, pcs] with bundle active. Good.",
+    "deliveries.tsx:222-231 uses editing?.unit and editing?.product FIRST, then falls back to settings — correctly prevents the New Delivery defaults from clobbering an existing row's values during Edit. Verified.",
+    "deliveries.tsx:311-317 gates the product-chip row on defaultProducts.length so it doesn't render an empty ScrollView when settings.default_products is empty. Good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_settings_defaults.py (created)"
+  ],
+  "success_rate": {"backend": "100% (9/9 pytest)", "frontend": "100% (all 6 review scenarios verified)"},
+  "seed_data_creation": "Test-only customer/driver prefixed 'TEST_' + one delivery per test class, all cleaned up. One extra delivery created via UI (bundle · Mix Namkeen · qty 1) and the transient TEST_edit_scenario delivery (kg · Sev · qty 2) both deleted via API after tests. Settings restored to safe defaults: default_unit='kg', default_products=['Sev','Bhujia','Gathiya','Chana Dal','Mixture','Papdi'], business_name='Kushan.Ji Namkeen'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The Deliveries New/Edit modal DeliveryForm consumes settings from /api/settings (fetched at deliveries.tsx top-level). New delivery: unit defaults to settings.default_unit, product to settings.default_products[0]. Unit chip row is [settings.default_unit] + BASE_UNITS(['kg','g','packets','boxes','dozen','bundle','pcs']) deduped, so default_unit always appears first; the current selection is also always injected into the list (so tapping any chip keeps that chip visible). Edit delivery: editing?.unit and editing?.product take precedence over settings defaults. Product-chip row (testID `product-chip-<name>`) renders horizontally only when default_products is non-empty; tapping a chip calls setProduct(p). Backend: PUT /api/settings body {business_name, default_unit, default_products[], business_logo?, theme?}. Safe defaults were restored at end of this run.",
+  "rca_of_issue": "N/A — feature fix verified. Prior bug (Business Settings default_unit not appearing in the New Delivery Unit row; default_products not pre-selecting the Product) was caused by the delivery form having a hardcoded unit list ['kg','g','packets','boxes','dozen'] and no product pre-fill. Fix: deliveries.tsx now fetches /api/settings and injects settings.default_unit at the head of a merged BASE_UNITS list plus pre-fills product with default_products[0] and renders a product-chip row for the rest. Verified via 9 backend pytests + full 6-scenario mobile-web playwright walkthrough."
+}

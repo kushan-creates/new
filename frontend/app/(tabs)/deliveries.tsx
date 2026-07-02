@@ -11,6 +11,7 @@ import { COLORS, RADIUS, SHADOW, SPACING } from '@/src/theme/theme';
 
 type Customer = { id: string; name: string; mobile: string; whatsapp: string };
 type Driver = { id: string; name: string };
+type AppSettings = { default_unit: string; default_products: string[]; business_name: string };
 type Delivery = {
   id: string;
   date: string;
@@ -27,13 +28,14 @@ type Delivery = {
   remarks?: string;
 };
 
-const UNITS = ['kg', 'g', 'packets', 'boxes', 'dozen'];
+const BASE_UNITS = ['kg', 'g', 'packets', 'boxes', 'dozen', 'bundle', 'pcs'];
 
 export default function DeliveriesScreen() {
   const toast = useToast();
   const [items, setItems] = useState<Delivery[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
@@ -41,14 +43,16 @@ export default function DeliveriesScreen() {
 
   const load = async () => {
     try {
-      const [list, c, d] = await Promise.all([
+      const [list, c, d, s] = await Promise.all([
         api<Delivery[]>('/deliveries'),
         api<Customer[]>('/customers'),
         api<Driver[]>('/drivers'),
+        api<AppSettings>('/settings'),
       ]);
       setItems(list);
       setCustomers(c);
       setDrivers(d);
+      setSettings(s);
     } catch (e: any) {
       toast.show(e.message || 'Failed to load', 'error');
     }
@@ -196,6 +200,7 @@ export default function DeliveriesScreen() {
         <DeliveryForm
           customers={customers}
           drivers={drivers}
+          settings={settings}
           editing={modal.editing}
           onClose={() => setModal({ open: false })}
           onSaved={() => { setModal({ open: false }); load(); }}
@@ -206,23 +211,36 @@ export default function DeliveriesScreen() {
 }
 
 function DeliveryForm({
-  customers, drivers, editing, onClose, onSaved,
+  customers, drivers, settings, editing, onClose, onSaved,
 }: {
-  customers: Customer[]; drivers: Driver[]; editing?: Delivery | null; onClose: () => void; onSaved: () => void;
+  customers: Customer[]; drivers: Driver[]; settings: AppSettings | null; editing?: Delivery | null; onClose: () => void; onSaved: () => void;
 }) {
   const toast = useToast();
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   const defaultTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const defaultUnit = editing?.unit || settings?.default_unit || 'kg';
+  const defaultProducts = settings?.default_products || [];
+  const defaultProduct = editing?.product || defaultProducts[0] || '';
   const [date, setDate] = useState(editing?.date || new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(editing?.time || defaultTime);
   const [customerId, setCustomerId] = useState(editing?.customer_id || customers[0]?.id || '');
   const [driverId, setDriverId] = useState(editing?.driver_id || drivers[0]?.id || '');
-  const [product, setProduct] = useState(editing?.product || '');
+  const [product, setProduct] = useState(defaultProduct);
   const [quantity, setQuantity] = useState(editing?.quantity ? String(editing.quantity) : '');
-  const [unit, setUnit] = useState(editing?.unit || 'kg');
+  const [unit, setUnit] = useState(defaultUnit);
   const [remarks, setRemarks] = useState(editing?.remarks || '');
   const [saving, setSaving] = useState(false);
+
+  // Merge configured default unit into the unit chip list (dedup, preserve order)
+  const unitOptions = useMemo(() => {
+    const list: string[] = [];
+    const add = (u?: string) => { if (u && !list.includes(u)) list.push(u); };
+    add(settings?.default_unit);
+    BASE_UNITS.forEach(add);
+    add(unit); // ensure current selection is always in the list
+    return list;
+  }, [settings?.default_unit, unit]);
 
   useEffect(() => {
     if (!editing) {
@@ -290,13 +308,20 @@ function DeliveryForm({
 
             <View style={{ height: SPACING.md }} />
             <Field label="Product" value={product} onChangeText={setProduct} placeholder="Sev, Bhujia, Gathiya…" testID="delivery-product-input" />
+            {defaultProducts.length ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: SPACING.sm }}>
+                {defaultProducts.map((p) => (
+                  <Chip key={p} label={p} active={product === p} onPress={() => setProduct(p)} testID={`product-chip-${p}`} />
+                ))}
+              </ScrollView>
+            ) : null}
 
             <View style={{ flexDirection: 'row', gap: SPACING.md }}>
               <Field label="Quantity" value={quantity} onChangeText={setQuantity} keyboardType="numeric" placeholder="0" style={{ flex: 1 }} testID="delivery-quantity-input" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.formLabel}>Unit</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {UNITS.map((u) => (
+                  {unitOptions.map((u) => (
                     <Chip key={u} label={u} active={unit === u} onPress={() => setUnit(u)} testID={`unit-chip-${u}`} />
                   ))}
                 </ScrollView>
