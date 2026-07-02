@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import { COLORS, RADIUS, SPACING } from '@/src/theme/theme';
 
 const BIO_ENABLED_KEY = 'kushanji_bio_enabled';
 const BIO_TOKEN_KEY = 'kushanji_bio_token';
+const BIO_EMAIL_KEY = 'kushanji_bio_email';
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuth();
@@ -25,34 +26,39 @@ export default function SettingsScreen() {
 
   const load = async () => {
     try { setSettings(await api('/settings')); } catch {}
-    const enabled = await AsyncStorage.getItem(BIO_ENABLED_KEY);
-    setBioEnabled(enabled === '1');
-    const hw = await LocalAuthentication.hasHardwareAsync();
-    const enrolled = await LocalAuthentication.isEnrolledAsync();
-    setBioAvailable(hw && enrolled);
+    if (Platform.OS === 'web') { setBioAvailable(false); return; }
+    const token = await AsyncStorage.getItem(BIO_TOKEN_KEY);
+    setBioEnabled(!!token);
+    try {
+      const hw = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      setBioAvailable(hw && enrolled);
+    } catch { setBioAvailable(false); }
   };
   useFocusEffect(useCallback(() => { load(); }, []));
 
   const toggleBio = async () => {
-    if (!bioAvailable) { toast.show('Biometric hardware not available or not enrolled', 'error'); return; }
+    if (!bioAvailable) { toast.show('Biometric not available on this device', 'error'); return; }
     if (!bioEnabled) {
       const res = await LocalAuthentication.authenticateAsync({ promptMessage: 'Enable biometric login' });
       if (!res.success) return;
       const token = await loadToken();
-      if (token) await AsyncStorage.setItem(BIO_TOKEN_KEY, token);
-      await AsyncStorage.setItem(BIO_ENABLED_KEY, '1');
+      if (token) {
+        await AsyncStorage.setItem(BIO_TOKEN_KEY, token);
+        if (user?.email) await AsyncStorage.setItem(BIO_EMAIL_KEY, user.email);
+      }
       setBioEnabled(true);
       toast.show('Biometric login enabled', 'success');
     } else {
-      await AsyncStorage.removeItem(BIO_ENABLED_KEY);
       await AsyncStorage.removeItem(BIO_TOKEN_KEY);
+      await AsyncStorage.removeItem(BIO_EMAIL_KEY);
       setBioEnabled(false);
       toast.show('Biometric login disabled', 'info');
     }
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.removeItem(BIO_TOKEN_KEY);
+    // Keep the biometric-saved token so user can biometric-login next time
     await signOut();
     router.replace('/login');
   };
@@ -80,12 +86,14 @@ export default function SettingsScreen() {
 
           <Section title="Account">
             <Row icon="person-outline" label="Edit Profile & Credentials" testID="settings-row-profile" onPress={() => router.push('/profile')} />
-            <Row icon="finger-print"
-              label={`Biometric Login ${bioEnabled ? 'Enabled' : 'Disabled'}`}
-              right={<View style={[styles.switch, bioEnabled && { backgroundColor: COLORS.brandPrimary }]}><View style={[styles.switchKnob, bioEnabled && { left: 22 }]} /></View>}
-              testID="settings-row-bio"
-              onPress={toggleBio}
-            />
+            {Platform.OS !== 'web' ? (
+              <Row icon="finger-print"
+                label={`Biometric Login ${bioEnabled ? 'Enabled' : 'Disabled'}`}
+                right={<View style={[styles.switch, bioEnabled && { backgroundColor: COLORS.brandPrimary }]}><View style={[styles.switchKnob, bioEnabled && { left: 22 }]} /></View>}
+                testID="settings-row-bio"
+                onPress={toggleBio}
+              />
+            ) : null}
           </Section>
 
           <Section title="Master Data">

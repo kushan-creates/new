@@ -31,6 +31,9 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "kushan-ji-super-secret-change-me-prod
 JWT_ALG = "HS256"
 ACCESS_TOKEN_TTL_MIN = 60 * 24 * 7  # 7 days
 
+# IST offset for automatic time capture (India Standard Time)
+IST = timezone(timedelta(hours=5, minutes=30))
+
 DEFAULT_ADMIN_EMAIL = "admin@kushanji.com"
 DEFAULT_ADMIN_PASSWORD = "Admin@123"
 DEFAULT_USER_EMAIL = "user@kushanji.com"
@@ -145,6 +148,7 @@ class DeliveryIn(BaseModel):
     quantity: float
     unit: str = "kg"
     remarks: str = ""
+    time: Optional[str] = None  # HH:MM — if omitted, server auto-captures IST
 
 
 class SettingsIn(BaseModel):
@@ -556,7 +560,8 @@ async def list_deliveries(
 
 @api.post("/deliveries")
 async def create_delivery(body: DeliveryIn, user=Depends(get_user)):
-    now = datetime.now(timezone.utc)
+    now_ist = datetime.now(IST)
+    entry_time = (body.time or "").strip() or now_ist.strftime("%H:%M")
     # duplicate detection: same date+customer+driver+product+quantity in last 5 min
     dup = await db.deliveries.find_one({
         "date": body.date,
@@ -570,7 +575,7 @@ async def create_delivery(body: DeliveryIn, user=Depends(get_user)):
     doc = {
         "id": str(uuid.uuid4()),
         "date": body.date,
-        "time": now.strftime("%H:%M"),
+        "time": entry_time,
         "customer_id": body.customer_id,
         "driver_id": body.driver_id,
         "product": body.product.strip(),
@@ -605,6 +610,7 @@ async def update_delivery(did: str, body: DeliveryIn, user=Depends(get_user)):
     })
     update = {
         "date": body.date,
+        "time": (body.time or "").strip() or existing.get("time"),
         "customer_id": body.customer_id,
         "driver_id": body.driver_id,
         "product": body.product.strip(),
@@ -761,6 +767,114 @@ async def product_summary(
         cur["quantity"] += float(d["quantity"])
         cur["count"] += 1
     return {"rows": sorted(agg.values(), key=lambda r: r["quantity"], reverse=True)}
+
+
+@api.get("/reports/period-analysis")
+async def period_analysis(
+    user=Depends(get_user),
+    period: str = "monthly",  # weekly | monthly | yearly | custom
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    customer_id: Optional[str] = None,
+):
+    """Detailed per-day breakdown grouped by customer/product for a period.
+
+    Returns:
+      - period_label, from, to
+      - by_day: [{date, quantity, count}]
+      - by_customer: [{customer_id, name, quantity, count, days: [{date, quantity}]}]
+      - by_product: [{product, quantity, count}]
+      - grand_total_quantity, grand_total_count
+    """
+    today = date.today()
+    if period == "weekly":
+        start = today - timedelta(days=today.weekday())  # Monday
+        end = start + timedelta(days=6)
+        label = f"Week of {start.isoformat()}"
+    elif period == "monthly":
+        start = today.replace(day=1)
+        # last day of month
+        if start.month == 12:
+            end = start.replace(year=start.year + 1, month=1) - timedelta(days=1)
+        else:
+            end = start.replace(month=start.month + 1) - timedelta(days=1)
+        label = start.strftime("%B %Y")
+    elif period == "yearly":
+        start = today.replace(month=1, day=1)
+        end = today.replace(month=12, day=31)
+        label = f"Year {start.year}"
+    else:
+        if not (date_from and date_to):
+            raise HTTPException(status_code=400, detail="date_from and date_to required for custom period")
+        start = date.fromisoformat(date_from)
+        end = date.fromisoformat(date_to)
+        label = f"{date_from} → {date_to}"
+
+    flt: Dict[str, Any] = {
+        "deleted_at": {"$exists": False},
+        "date": {"$gte": start.isoformat(), "$lte": end.isoformat()},
+    }
+    if customer_id:
+        flt["customer_id"] = customer_id
+
+    by_day: Dict[str, Dict[str, float]] = {}
+    by_customer: Dict[str, Dict[str, Any]] = {}
+    by_product: Dict[str, Dict[str, Any]] = {}
+    grand_qty = 0.0
+    grand_count = 0
+
+    async for d in db.deliveries.find(flt, {"_id": 0}).limit(100000):
+        qty = float(d.get("quantity", 0))
+        grand_qty += qty
+        grand_count += 1
+
+        # by day
+        day_row = by_day.setdefault(d["date"], {"date": d["date"], "quantity": 0.0, "count": 0})
+        day_row["quantity"] += qty
+        day_row["count"] += 1
+
+        # by customer with per-day days list
+        cid = d["customer_id"]
+        cust_row = by_customer.setdefault(cid, {"customer_id": cid, "name": "", "quantity": 0.0, "count": 0, "days": {}})
+        cust_row["quantity"] += qty
+        cust_row["count"] += 1
+        cust_row["days"][d["date"]] = cust_row["days"].get(d["date"], 0.0) + qty
+
+        # by product
+        p = d["product"]
+        prod_row = by_product.setdefault(p, {"product": p, "quantity": 0.0, "count": 0})
+        prod_row["quantity"] += qty
+        prod_row["count"] += 1
+
+    # resolve customer names
+    cids = list(by_customer.keys())
+    if cids:
+        async for c in db.customers.find({"id": {"$in": cids}}, {"_id": 0}):
+            if c["id"] in by_customer:
+                by_customer[c["id"]]["name"] = c["name"]
+
+    # flatten days dict → sorted list
+    customer_list = []
+    for row in by_customer.values():
+        row["days"] = sorted(
+            [{"date": k, "quantity": v} for k, v in row["days"].items()],
+            key=lambda x: x["date"],
+        )
+        if not row["name"]:
+            row["name"] = "Unknown"
+        customer_list.append(row)
+    customer_list.sort(key=lambda r: r["quantity"], reverse=True)
+
+    return {
+        "period_label": label,
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "grand_total_quantity": grand_qty,
+        "grand_total_count": grand_count,
+        "by_day": sorted(by_day.values(), key=lambda r: r["date"]),
+        "by_customer": customer_list,
+        "by_product": sorted(by_product.values(), key=lambda r: r["quantity"], reverse=True),
+    }
 
 
 # ---------------------------------------------------------------------------

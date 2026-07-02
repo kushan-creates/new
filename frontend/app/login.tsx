@@ -10,45 +10,79 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { Btn, Field, H1 } from '@/src/components/UI';
 import { useToast } from '@/src/components/Toast';
 import { COLORS, RADIUS, SPACING } from '@/src/theme/theme';
-import { saveToken } from '@/src/api/client';
+import { saveToken, loadToken } from '@/src/api/client';
 
 const LAST_EMAIL_KEY = 'kushanji_last_email';
-const BIO_ENABLED_KEY = 'kushanji_bio_enabled';
 const BIO_TOKEN_KEY = 'kushanji_bio_token';
+const BIO_EMAIL_KEY = 'kushanji_bio_email';
 
 export default function Login() {
   const { signIn, refresh } = useAuth();
   const router = useRouter();
   const toast = useToast();
-  const [email, setEmail] = useState('admin@kushanji.com');
-  const [password, setPassword] = useState('Admin@123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [bioAvailable, setBioAvailable] = useState(false);
-  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioReady, setBioReady] = useState(false);
+  const [bioLabel, setBioLabel] = useState('Biometrics');
+  const [bioSavedEmail, setBioSavedEmail] = useState<string | null>(null);
 
+  // Detect hardware + saved token; show button whenever both are present
   useEffect(() => {
     (async () => {
       const last = await AsyncStorage.getItem(LAST_EMAIL_KEY);
       if (last) setEmail(last);
-      const hasHw = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      setBioAvailable(hasHw && enrolled);
-      const enabled = await AsyncStorage.getItem(BIO_ENABLED_KEY);
-      setBioEnabled(enabled === '1');
+
+      if (Platform.OS === 'web') return; // biometrics not supported in browsers
+
+      try {
+        const hasHw = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!hasHw || !enrolled) return;
+
+        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) setBioLabel('Face ID');
+        else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) setBioLabel('Fingerprint');
+        else if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) setBioLabel('Iris');
+        else setBioLabel('Biometrics');
+
+        const savedToken = await AsyncStorage.getItem(BIO_TOKEN_KEY);
+        const savedEmail = await AsyncStorage.getItem(BIO_EMAIL_KEY);
+        if (savedToken) {
+          setBioReady(true);
+          setBioSavedEmail(savedEmail);
+        }
+      } catch {
+        // ignore — biometric is best-effort
+      }
     })();
   }, []);
 
   const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      toast.show('Enter both email and password', 'error');
+      return;
+    }
     setLoading(true);
     try {
       await signIn(email.trim(), password);
       await AsyncStorage.setItem(LAST_EMAIL_KEY, email.trim());
-      // if biometrics enabled previously, refresh stored token for reuse
-      const enabled = await AsyncStorage.getItem(BIO_ENABLED_KEY);
-      if (enabled === '1') {
-        const t = await import('@/src/api/client').then((m) => m.loadToken());
-        if (t) await AsyncStorage.setItem(BIO_TOKEN_KEY, t);
+
+      // Auto-save token for biometric unlock on native if hardware exists
+      if (Platform.OS !== 'web') {
+        try {
+          const hasHw = await LocalAuthentication.hasHardwareAsync();
+          const enrolled = await LocalAuthentication.isEnrolledAsync();
+          if (hasHw && enrolled) {
+            const t = await loadToken();
+            if (t) {
+              await AsyncStorage.setItem(BIO_TOKEN_KEY, t);
+              await AsyncStorage.setItem(BIO_EMAIL_KEY, email.trim());
+            }
+          }
+        } catch { /* ignore */ }
       }
+
       router.replace('/(tabs)/dashboard');
     } catch (e: any) {
       toast.show(e.message || 'Login failed', 'error');
@@ -60,20 +94,31 @@ export default function Login() {
   const handleBiometric = async () => {
     try {
       const res = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Kushan.Ji',
+        promptMessage: `Unlock Kushan.Ji Namkeen with ${bioLabel}`,
         fallbackLabel: 'Use Password',
+        disableDeviceFallback: false,
       });
-      if (!res.success) return;
+      if (!res.success) {
+        if (res.error && res.error !== 'user_cancel') toast.show(`Biometric ${res.error}`, 'error');
+        return;
+      }
       const token = await AsyncStorage.getItem(BIO_TOKEN_KEY);
       if (!token) {
-        toast.show('Please log in once with password to enable biometric unlock', 'info');
+        toast.show('Please log in with password once to enable biometric unlock', 'info');
         return;
       }
       await saveToken(token);
-      await refresh();
-      router.replace('/(tabs)/dashboard');
+      try {
+        await refresh();
+        router.replace('/(tabs)/dashboard');
+      } catch {
+        // stored token expired; force password login
+        await AsyncStorage.removeItem(BIO_TOKEN_KEY);
+        toast.show('Session expired, please sign in with password', 'info');
+        setBioReady(false);
+      }
     } catch (e: any) {
-      toast.show('Biometric failed', 'error');
+      toast.show(e.message || 'Biometric failed', 'error');
     }
   };
 
@@ -84,18 +129,19 @@ export default function Login() {
           <View style={styles.logoWrap}>
             <Image source={require('../assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
           </View>
+          <Text style={styles.brand}>Kushan.Ji Namkeen</Text>
           <H1 style={styles.title}>Welcome Back</H1>
           <Text style={styles.subtitle}>Sign in to manage deliveries</Text>
 
           <View style={styles.form}>
             <Field
-              label="Email"
+              label="Username / Email"
               testID="login-email-input"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
-              placeholder="you@example.com"
+              placeholder="Enter your email"
             />
             <Field
               label="Password"
@@ -103,23 +149,28 @@ export default function Login() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              placeholder="••••••••"
+              placeholder="Enter your password"
             />
 
             <Btn title="Sign In" onPress={handleLogin} loading={loading} testID="login-submit-button" />
 
-            {bioAvailable && bioEnabled ? (
-              <Pressable testID="login-biometric-button" style={styles.bioBtn} onPress={handleBiometric}>
-                <Ionicons name="finger-print" size={22} color={COLORS.brandPrimary} />
-                <Text style={styles.bioText}>Unlock with Biometrics</Text>
-              </Pressable>
+            {bioReady ? (
+              <>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+                <Pressable testID="login-biometric-button" style={styles.bioBtn} onPress={handleBiometric}>
+                  <Ionicons name={bioLabel === 'Face ID' ? 'happy-outline' : 'finger-print'} size={24} color={COLORS.brandPrimary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.bioTitle}>Unlock with {bioLabel}</Text>
+                    {bioSavedEmail ? <Text style={styles.bioSub}>{bioSavedEmail}</Text> : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.brandPrimary} />
+                </Pressable>
+              </>
             ) : null}
-
-            <View style={styles.demo} testID="login-demo-credentials">
-              <Text style={styles.demoTitle}>Demo Accounts</Text>
-              <Text style={styles.demoLine}>Admin · admin@kushanji.com / Admin@123</Text>
-              <Text style={styles.demoLine}>User · user@kushanji.com / User@123</Text>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -132,23 +183,32 @@ const styles = StyleSheet.create({
   container: { padding: SPACING.lg, paddingTop: SPACING.xl, flexGrow: 1 },
   logoWrap: {
     alignSelf: 'center',
-    marginBottom: SPACING.xl,
+    backgroundColor: '#000',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
-  logo: { width: 220, height: 110 },
+  logo: { width: 180, height: 90 },
+  brand: { textAlign: 'center', fontSize: 20, fontWeight: '800', color: COLORS.brandPrimary, letterSpacing: 0.5, marginBottom: 4 },
   title: { textAlign: 'center', marginBottom: 4 },
   subtitle: { textAlign: 'center', color: COLORS.muted, marginBottom: SPACING.xl, fontSize: 14 },
   form: { gap: SPACING.xs },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: SPACING.md, gap: SPACING.md },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  dividerText: { fontSize: 11, fontWeight: '700', color: COLORS.muted, letterSpacing: 1 },
   bioBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
+    gap: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 16,
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.brandTertiary,
-    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.brandPrimary,
   },
-  bioText: { color: COLORS.brandPrimary, fontWeight: '700' },
+  bioTitle: { color: COLORS.brandPrimary, fontWeight: '700', fontSize: 15 },
+  bioSub: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
   demo: {
     marginTop: SPACING.xl,
     backgroundColor: COLORS.surfaceTertiary,
@@ -156,5 +216,5 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   demoTitle: { fontSize: 12, fontWeight: '700', color: COLORS.onSurfaceSecondary, marginBottom: 6 },
-  demoLine: { fontSize: 12, color: COLORS.muted, marginVertical: 2 },
+  demoLine: { fontSize: 12, color: COLORS.muted, marginVertical: 4 },
 });

@@ -211,7 +211,11 @@ function DeliveryForm({
   customers: Customer[]; drivers: Driver[]; editing?: Delivery | null; onClose: () => void; onSaved: () => void;
 }) {
   const toast = useToast();
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const defaultTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const [date, setDate] = useState(editing?.date || new Date().toISOString().slice(0, 10));
+  const [time, setTime] = useState(editing?.time || defaultTime);
   const [customerId, setCustomerId] = useState(editing?.customer_id || customers[0]?.id || '');
   const [driverId, setDriverId] = useState(editing?.driver_id || drivers[0]?.id || '');
   const [product, setProduct] = useState(editing?.product || '');
@@ -235,7 +239,7 @@ function DeliveryForm({
     setSaving(true);
     try {
       const body = {
-        date, customer_id: customerId, driver_id: driverId, product,
+        date, time, customer_id: customerId, driver_id: driverId, product,
         quantity: parseFloat(quantity), unit, remarks,
       };
       if (editing) {
@@ -263,7 +267,10 @@ function DeliveryForm({
           <ScrollView contentContainerStyle={{ paddingBottom: SPACING.xl }}>
             <H2 style={{ marginBottom: SPACING.md }}>{editing ? 'Edit Delivery' : 'New Delivery'}</H2>
 
-            <Field label="Date" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" testID="delivery-date-input" />
+            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
+              <Field label="Date" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" style={{ flex: 1 }} testID="delivery-date-input" />
+              <Field label="Time (HH:MM)" value={time} onChangeText={setTime} placeholder="HH:MM" style={{ flex: 1 }} testID="delivery-time-input" />
+            </View>
 
             <Text style={styles.formLabel}>Customer</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>

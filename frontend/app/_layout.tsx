@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { LogBox } from 'react-native';
+import { LogBox, Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -13,6 +13,11 @@ LogBox.ignoreAllLogs(true);
 
 SplashScreen.preventAutoHideAsync();
 
+// Ensure the browser tab title reflects the business name
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  document.title = 'Kushan.Ji Namkeen — Delivery Management';
+}
+
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
 
@@ -22,15 +27,46 @@ export default function RootLayout() {
 
   if (!loaded && !error) return null;
 
+  const stack = (
+    <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
+  );
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
           <ToastProvider>
-            <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
+            {Platform.OS === 'web' ? (
+              <View style={webStyles.page}>
+                <View style={webStyles.phone}>{stack}</View>
+              </View>
+            ) : (
+              stack
+            )}
           </ToastProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
+
+const webStyles = StyleSheet.create({
+  page: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'stretch',
+    backgroundColor: '#0F1224',
+  },
+  phone: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#F8F9FB',
+    // subtle shadow to look like a device on desktop
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+});
