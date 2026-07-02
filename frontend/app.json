@@ -1,18 +1,19 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Kushan.Ji Namkeen",
+    "slug": "kushan-ji-namkeen",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "kushanjinamkeen",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Sign in faster with Face ID"
-      }
+      },
+      "bundleIdentifier": "com.emergent.deliverysyncpro.y3duab"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +21,11 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"]
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ],
+      "package": "com.emergent.deliverysyncpro.y3duab"
     },
     "web": {
       "bundler": "metro",

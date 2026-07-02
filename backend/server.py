@@ -423,7 +423,7 @@ async def delete_user(user_id: str, admin=Depends(admin_only)):
 # ---------------------------------------------------------------------------
 @api.get("/customers")
 async def list_customers(user=Depends(get_user)):
-    cur = db.customers.find({}, {"_id": 0}).sort("name", 1)
+    cur = db.customers.find({}, {"_id": 0}).sort("name", 1).limit(5000)
     return [c async for c in cur]
 
 
@@ -469,7 +469,7 @@ async def delete_customer(cid: str, user=Depends(get_user)):
 # ---------------------------------------------------------------------------
 @api.get("/drivers")
 async def list_drivers(user=Depends(get_user)):
-    cur = db.drivers.find({}, {"_id": 0}).sort("name", 1)
+    cur = db.drivers.find({}, {"_id": 0}).sort("name", 1).limit(1000)
     return [d async for d in cur]
 
 
@@ -645,7 +645,7 @@ async def list_trash(user=Depends(get_user)):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     # auto-purge older than 30 days
     await db.deliveries.delete_many({"deleted_at": {"$lt": cutoff}})
-    cur = db.deliveries.find({"deleted_at": {"$exists": True}}, {"_id": 0}).sort("deleted_at", -1)
+    cur = db.deliveries.find({"deleted_at": {"$exists": True}}, {"_id": 0}).sort("deleted_at", -1).limit(500)
     return [await enrich_delivery(d) async for d in cur]
 
 
@@ -720,7 +720,7 @@ async def customer_summary(
     if date_from and date_to:
         flt["date"] = {"$gte": date_from, "$lte": date_to}
     rows = []
-    async for d in db.deliveries.find(flt, {"_id": 0}).sort("date", 1):
+    async for d in db.deliveries.find(flt, {"_id": 0}).sort("date", 1).limit(10000):
         rows.append(await enrich_delivery(d))
     total_qty = sum(r["quantity"] for r in rows)
     return {"rows": rows, "total_quantity": total_qty, "count": len(rows)}
@@ -739,7 +739,7 @@ async def driver_summary(
     if date_from and date_to:
         flt["date"] = {"$gte": date_from, "$lte": date_to}
     rows = []
-    async for d in db.deliveries.find(flt, {"_id": 0}).sort("date", 1):
+    async for d in db.deliveries.find(flt, {"_id": 0}).sort("date", 1).limit(10000):
         rows.append(await enrich_delivery(d))
     total_qty = sum(r["quantity"] for r in rows)
     return {"rows": rows, "total_quantity": total_qty, "count": len(rows)}
@@ -755,7 +755,7 @@ async def product_summary(
     if date_from and date_to:
         flt["date"] = {"$gte": date_from, "$lte": date_to}
     agg: Dict[str, Dict[str, Any]] = {}
-    async for d in db.deliveries.find(flt, {"_id": 0}):
+    async for d in db.deliveries.find(flt, {"_id": 0}).limit(50000):
         k = d["product"]
         cur = agg.setdefault(k, {"product": k, "quantity": 0.0, "count": 0, "unit": d.get("unit", "kg")})
         cur["quantity"] += float(d["quantity"])
